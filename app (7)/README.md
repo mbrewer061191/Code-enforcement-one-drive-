@@ -1,20 +1,19 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# Commerce, OK Code Enforcement App
 
-# Run and deploy your AI Studio app
+This application allows code enforcement officers to manage cases, track properties, and generate notices.
 
-This contains everything you need to run your app locally.
+## Deployment Status
+*   **Vercel**: Configured for Vite (SPA)
+*   **Data**: Stored in local JSON (OneDrive)
 
-View your app in AI Studio: https://ai.studio/apps/drive/1YnXYao8Wg3h2JkP6VP9KcDp3l0UJkq6y
+## Features
+*   Case Management
+*   Property Directory
+*   Abatement Tracking
+*   Notice Generation
+*   Offline-capable (PWA features enabled)
 
-## Run Locally
-
-**Prerequisites:**  Node.js
-
-
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+## Local Development
+1.  Clone repository.
+2.  Run `npm install`.
+3.  Run `npm run dev`.
