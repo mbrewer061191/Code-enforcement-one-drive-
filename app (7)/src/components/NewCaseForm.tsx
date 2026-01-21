@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Case, PhotoWithMeta, EvidencePhoto, Property } from '../types';
-import { initialAddressState, initialOwnerState, initialViolationState, VIOLATIONS_LIST, COMPLIANCE_DAYS } from '../constants';
+import React, { useState } from 'react';
+import { Case, PhotoWithMeta, Property } from '../types';
+import { initialAddressState, initialOwnerState, initialViolationState, VIOLATIONS_LIST } from '../constants';
 
 import CameraView from './CameraView';
 
@@ -18,8 +18,6 @@ const NewCaseForm: React.FC<NewCaseFormProps> = ({ onSave, onCancel, properties,
     const [isSaving, setIsSaving] = useState(false); // Used for brief double-click prevention
     const [lookupMessage, setLookupMessage] = useState('');
 
-
-
     // Derive form values from the draft prop
     const caseId = draftCase?.caseId || '';
     const address = draftCase?.address || initialAddressState;
@@ -31,7 +29,9 @@ const NewCaseForm: React.FC<NewCaseFormProps> = ({ onSave, onCancel, properties,
     const violationManual = (violation.type === 'Other (Manual Entry)' && draftCase?.violation) || initialViolationState;
 
     const updateDraft = (updates: Partial<Case> & { _tempPhotos?: PhotoWithMeta[] }) => {
-        onUpdateDraft({ ...draftCase!, ...updates });
+        if (draftCase) {
+            onUpdateDraft({ ...draftCase, ...updates });
+        }
     };
 
     const handleAddressLookup = () => {
@@ -70,15 +70,12 @@ const NewCaseForm: React.FC<NewCaseFormProps> = ({ onSave, onCancel, properties,
 
         // This is now a synchronous call. The parent component handles the async work.
         onSave(draftCase);
-        // The component will unmount, so no need to `setIsSaving(false)` on success.
     };
 
     const handleViolationChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
         const selected = VIOLATIONS_LIST.find(v => v.type === e.target.value) || initialViolationState;
         updateDraft({ violation: selected });
     };
-
-
 
     return (
         <>
@@ -110,9 +107,9 @@ const NewCaseForm: React.FC<NewCaseFormProps> = ({ onSave, onCancel, properties,
                     <div className="photo-gallery">{photos.map((p, i) => <div key={i} className="photo-thumbnail"><img src={p.dataUrl} alt={`Evidence photo ${i + 1}`} /></div>)}</div>
                     <div className="button-group" style={{ marginTop: '1rem' }}>
                         <button type="button" className="button" onClick={() => setShowCamera(true)}>Take Photos</button>
-
                     </div>
                 </div>
+
                 <div className="card">
                     <h2>Owner Information</h2>
                     <div className="form-group"><label><input type="checkbox" checked={ownerUnknown} onChange={e => updateDraft({ ownerInfoStatus: e.target.checked ? 'UNKNOWN' : 'KNOWN' })} /> Owner information is unknown</label></div>
@@ -123,6 +120,7 @@ const NewCaseForm: React.FC<NewCaseFormProps> = ({ onSave, onCancel, properties,
                         <p className="helper-text">For multi-line addresses on envelopes, use the Enter/Return key for line breaks.</p>
                     </div>
                 </div>
+
                 <div className="card">
                     <h2>Violation Details</h2>
                     <div className="form-group"><label>Violation Type</label><select value={violation.type} onChange={handleViolationChange} required><option disabled>Select a Violation...</option>{VIOLATIONS_LIST.map(v => <option key={v.type} value={v.type}>{v.type}</option>)}</select></div>
@@ -138,7 +136,9 @@ const NewCaseForm: React.FC<NewCaseFormProps> = ({ onSave, onCancel, properties,
                         </>
                     )}
                 </div>
-                <div className="button-group" style={{ justifyContent: 'flex-end' }}><button type="button" className="button secondary-action" onClick={onCancel} disabled={isSaving}>Cancel</button>
+
+                <div className="button-group" style={{ justifyContent: 'flex-end' }}>
+                    <button type="button" className="button secondary-action" onClick={onCancel} disabled={isSaving}>Cancel</button>
                     <button type="submit" className="button primary-action" disabled={isSaving}>
                         {isSaving ? <span className="loader" /> : 'Save Case'}
                     </button>
