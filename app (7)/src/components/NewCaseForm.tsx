@@ -19,6 +19,7 @@ const NewCaseForm: React.FC<NewCaseFormProps> = ({ onSave, onCancel, properties,
     const [lookupMessage, setLookupMessage] = useState('');
 
 
+
     // Derive form values from the draft prop
     const caseId = draftCase?.caseId || '';
     const address = draftCase?.address || initialAddressState;
