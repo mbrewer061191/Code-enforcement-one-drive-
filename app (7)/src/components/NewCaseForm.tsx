@@ -112,36 +112,37 @@ const NewCaseForm: React.FC<NewCaseFormProps> = ({ onSave, onCancel, properties,
                         <button type="button" className="button" onClick={() => setShowCamera(true)}>Take Photos</button>
 
                     </div>
-                    <div className="card">
-                        <h2>Owner Information</h2>
-                        <div className="form-group"><label><input type="checkbox" checked={ownerUnknown} onChange={e => updateDraft({ ownerInfoStatus: e.target.checked ? 'UNKNOWN' : 'KNOWN' })} /> Owner information is unknown</label></div>
-                        <div className="form-group"><label>Owner Name</label><input type="text" value={owner.name} onChange={e => updateDraft({ ownerInfo: { ...owner, name: e.target.value } })} required={!ownerUnknown} disabled={ownerUnknown} /></div>
-                        <div className="form-group">
-                            <label>Mailing Address</label>
-                            <textarea value={owner.mailingAddress} onChange={e => updateDraft({ ownerInfo: { ...owner, mailingAddress: e.target.value } })} required={!ownerUnknown} disabled={ownerUnknown}></textarea>
-                            <p className="helper-text">For multi-line addresses on envelopes, use the Enter/Return key for line breaks.</p>
-                        </div>
+                </div>
+                <div className="card">
+                    <h2>Owner Information</h2>
+                    <div className="form-group"><label><input type="checkbox" checked={ownerUnknown} onChange={e => updateDraft({ ownerInfoStatus: e.target.checked ? 'UNKNOWN' : 'KNOWN' })} /> Owner information is unknown</label></div>
+                    <div className="form-group"><label>Owner Name</label><input type="text" value={owner.name} onChange={e => updateDraft({ ownerInfo: { ...owner, name: e.target.value } })} required={!ownerUnknown} disabled={ownerUnknown} /></div>
+                    <div className="form-group">
+                        <label>Mailing Address</label>
+                        <textarea value={owner.mailingAddress} onChange={e => updateDraft({ ownerInfo: { ...owner, mailingAddress: e.target.value } })} required={!ownerUnknown} disabled={ownerUnknown}></textarea>
+                        <p className="helper-text">For multi-line addresses on envelopes, use the Enter/Return key for line breaks.</p>
                     </div>
-                    <div className="card">
-                        <h2>Violation Details</h2>
-                        <div className="form-group"><label>Violation Type</label><select value={violation.type} onChange={handleViolationChange} required><option disabled>Select a Violation...</option>{VIOLATIONS_LIST.map(v => <option key={v.type} value={v.type}>{v.type}</option>)}</select></div>
-                        {violation.type === 'Other (Manual Entry)' ? (
-                            <>
-                                <div className="form-group"><label>Ordinance</label><input type="text" value={violationManual.ordinance} onChange={e => updateDraft({ violation: { ...violationManual, ordinance: e.target.value } })} /></div>
-                                <div className="form-group"><label>Description</label><textarea value={violationManual.description} onChange={e => updateDraft({ violation: { ...violationManual, description: e.target.value } })} /></div>
-                            </>
-                        ) : (
-                            <>
-                                <div className="form-group readonly"><label>Ordinance</label><div className="form-value">{violation.ordinance || 'N/A'}</div></div>
-                                <div className="form-group readonly"><label>Description</label><div className="form-value">{violation.description || 'N/A'}</div></div>
-                            </>
-                        )}
-                    </div>
-                    <div className="button-group" style={{ justifyContent: 'flex-end' }}><button type="button" className="button secondary-action" onClick={onCancel} disabled={isSaving}>Cancel</button>
-                        <button type="submit" className="button primary-action" disabled={isSaving}>
-                            {isSaving ? <span className="loader" /> : 'Save Case'}
-                        </button>
-                    </div>
+                </div>
+                <div className="card">
+                    <h2>Violation Details</h2>
+                    <div className="form-group"><label>Violation Type</label><select value={violation.type} onChange={handleViolationChange} required><option disabled>Select a Violation...</option>{VIOLATIONS_LIST.map(v => <option key={v.type} value={v.type}>{v.type}</option>)}</select></div>
+                    {violation.type === 'Other (Manual Entry)' ? (
+                        <>
+                            <div className="form-group"><label>Ordinance</label><input type="text" value={violationManual.ordinance} onChange={e => updateDraft({ violation: { ...violationManual, ordinance: e.target.value } })} /></div>
+                            <div className="form-group"><label>Description</label><textarea value={violationManual.description} onChange={e => updateDraft({ violation: { ...violationManual, description: e.target.value } })} /></div>
+                        </>
+                    ) : (
+                        <>
+                            <div className="form-group readonly"><label>Ordinance</label><div className="form-value">{violation.ordinance || 'N/A'}</div></div>
+                            <div className="form-group readonly"><label>Description</label><div className="form-value">{violation.description || 'N/A'}</div></div>
+                        </>
+                    )}
+                </div>
+                <div className="button-group" style={{ justifyContent: 'flex-end' }}><button type="button" className="button secondary-action" onClick={onCancel} disabled={isSaving}>Cancel</button>
+                    <button type="submit" className="button primary-action" disabled={isSaving}>
+                        {isSaving ? <span className="loader" /> : 'Save Case'}
+                    </button>
+                </div>
             </form>
         </>
     );
