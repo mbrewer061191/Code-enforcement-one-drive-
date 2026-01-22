@@ -18,7 +18,7 @@ import WelcomeScreen from './components/WelcomeScreen';
 import * as fileService from './fileSystemService';
 
 import LoginScreen from './components/LoginScreen';
-import { User, AppConfig } from './types';
+import { User, AppConfig, DocTemplate } from './types';
 import { getConfig, saveConfig } from './config';
 
 type AppStatus = 'NO_FILE' | 'LOGIN_REQUIRED' | 'READY';
