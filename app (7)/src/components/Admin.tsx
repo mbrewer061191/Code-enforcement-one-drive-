@@ -1,142 +1,150 @@
 import React, { useState, useEffect } from 'react';
-import { AppConfig } from '../types';
-import { getConfig, saveConfig, clearConfig, getAccessToken } from '../config';
-import { GOOGLE_CONSOLE_URL, GOOGLE_API_LIBRARY_URL } from '../constants';
+import { AppConfig, User } from '../types';
+import { getConfig, saveConfig } from '../config';
 
-const AdminView: React.FC<{ onSetupComplete: () => void }> = ({ onSetupComplete }) => {
+interface AdminViewProps {
+    onSetupComplete: () => void;
+}
+
+const AdminView: React.FC<AdminViewProps> = () => {
     const [config, setConfig] = useState<AppConfig | null>(null);
-    const [clientId, setClientId] = useState('');
-    const [status, setStatus] = useState<{ ok: boolean; message: string } | null>(null);
-    const [isLoading, setIsLoading] = useState(false);
-    const [isLoadingConfig, setIsLoadingConfig] = useState(true);
+    const [isLoading, setIsLoading] = useState(true);
+    const [saveStatus, setSaveStatus] = useState('');
+
+    // New User Form
+    const [newUsername, setNewUsername] = useState('');
+    const [newPassword, setNewPassword] = useState('');
+    const [newRole, setNewRole] = useState<'admin' | 'officer'>('officer');
 
     useEffect(() => {
-        const loadAdminConfig = async () => {
-            setIsLoadingConfig(true);
-            const cfg = await getConfig(true); // Force refresh
+        const load = async () => {
+            setIsLoading(true);
+            const cfg = await getConfig();
             setConfig(cfg);
-            setClientId(cfg?.google?.clientId || '');
-            setIsLoadingConfig(false);
+            setIsLoading(false);
         };
-        loadAdminConfig();
+        load();
     }, []);
 
-    const handleSaveSettings = async () => {
-        if (!clientId.trim()) {
-            setStatus({ ok: false, message: 'Client ID cannot be empty.' });
+    const handleAddUser = async () => {
+        if (!config || !newUsername || !newPassword) return;
+
+        // Check duplicate
+        if (config.users?.some(u => u.username.toLowerCase() === newUsername.toLowerCase())) {
+            alert('Username already exists!');
             return;
         }
-        
-        const newConfig: AppConfig = {
-            ...config,
-            google: {
-                ...config?.google,
-                clientId: clientId.trim(),
-            }
-        };
-        
+
+        const newUser: User = { username: newUsername, password: newPassword, role: newRole };
+        const updatedUsers = [...(config.users || []), newUser];
+
+        const newConfig = { ...config, users: updatedUsers };
+
         try {
             await saveConfig(newConfig);
             setConfig(newConfig);
-            setStatus({ ok: true, message: 'Settings saved successfully!' });
+            setNewUsername('');
+            setNewPassword('');
+            setSaveStatus('User added successfully!');
+            setTimeout(() => setSaveStatus(''), 3000);
         } catch (e: any) {
-            setStatus({ ok: false, message: `Failed to save settings: ${e.message}`});
+            setSaveStatus(`Error: ${e.message}`);
         }
     };
 
-    const handleCreateFile = async () => {
-        setIsLoading(true);
-        setStatus(null);
+    const handleDeleteUser = async (username: string) => {
+        if (!config) return;
+        if (!window.confirm(`Delete user "${username}"?`)) return;
+
+        // Prevent deleting the last admin
+        const admins = config.users?.filter(u => u.role === 'admin') || [];
+        const targetIsAdmin = config.users?.find(u => u.username === username)?.role === 'admin';
+
+        if (targetIsAdmin && admins.length <= 1) {
+            alert("Cannot delete the only administrator.");
+            return;
+        }
+
+        const updatedUsers = config.users?.filter(u => u.username !== username) || [];
+        const newConfig = { ...config, users: updatedUsers };
+
         try {
-            const token = await getAccessToken();
-            const metadata = { name: 'Code Enforcement App Data', mimeType: 'application/vnd.google-apps.spreadsheet' };
-            
-            const response = await fetch('https://www.googleapis.com/drive/v3/files', {
-                method: 'POST',
-                headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify(metadata)
-            });
-
-            if (!response.ok) throw new Error(await response.text());
-
-            const file = await response.json();
-            const newConfig = { ...config, google: { ...config!.google, fileId: file.id } };
-            
             await saveConfig(newConfig);
             setConfig(newConfig);
-            
-            setStatus({ ok: true, message: `Successfully created file: ${file.name}` });
-            onSetupComplete();
-        } catch (err: any) {
-            setStatus({ ok: false, message: `File creation failed: ${err.message}` });
-        } finally {
-            setIsLoading(false);
+        } catch (e: any) {
+            alert(e.message);
         }
     };
 
-    const handleClearConfig = async () => {
-        if (window.confirm('Are you sure? This will remove your configuration from this device and Google Drive.')) {
-            await clearConfig();
-            setConfig(null);
-            setClientId('');
-            setStatus(null);
-            onSetupComplete(); // Re-trigger app state check
-        }
-    };
-    
-    if (isLoadingConfig) {
-        return <div className="card"><div className="loader" style={{margin: 'auto', borderTopColor: 'var(--primary-color)', borderLeftColor: 'var(--primary-color)'}}></div></div>;
-    }
+    if (isLoading) return <div className="loader"></div>;
 
     return (
-        <div className="card">
-            <h2>Admin Setup</h2>
-            <div className="form-group">
-                <label htmlFor="google-client-id">1. Google Cloud Client ID</label>
-                <p className="helper-text">This is required for the app to function. It is stored on this device. You must enter it once per browser/device you use.</p>
-                 <div className="input-with-button">
-                    <input id="google-client-id" type="text" value={clientId} onChange={e => setClientId(e.target.value)} placeholder="your-client-id.apps.googleusercontent.com" />
-                </div>
-                 <div className="warning-box" style={{padding: '0.75rem', marginTop: '1rem', textAlign: 'left'}}>
-                    <p style={{marginBottom: '0.5rem'}}>To fix sign-in issues (especially on mobile), add this exact URL to your allowed list:</p>
-                    <div className="copyable-row">
-                        <code>{window.location.origin}</code>
-                        <button className="button copy-button" onClick={() => navigator.clipboard.writeText(window.location.origin)}>Copy</button>
-                    </div>
-                    <p style={{marginTop: '0.5rem'}}>You <strong>must</strong> add this to the "Authorized JavaScript origins" list for your Client ID in the <a href={GOOGLE_CONSOLE_URL} target="_blank" rel="noopener noreferrer">Google Cloud Console</a>.</p>
-                </div>
-                 <div className="warning-box" style={{padding: '0.75rem', marginBottom: '1rem', marginTop: '1rem'}}>
-                    <strong>Important:</strong> Before proceeding, ensure the following APIs are enabled in your <a href={GOOGLE_API_LIBRARY_URL} target="_blank" rel="noopener noreferrer">Google Cloud project</a>:
-                    <ul style={{paddingLeft: '1.5rem', marginTop: '0.5rem', fontSize: '0.9rem'}}>
-                        <li>Google Drive API</li>
-                        <li>Google Sheets API</li>
-                        <li>Google Docs API</li>
-                    </ul>
-                </div>
-                 <button onClick={handleSaveSettings} className="button">Save Client ID</button>
-            </div>
-            
-            <div className="form-group" style={{marginTop: '1.5rem'}}>
-                <label>2. Data File (Synced)</label>
-                <p className="helper-text">The app stores all case data in a single Google Sheet. This setting syncs across your devices.</p>
-                <p className="helper-text" style={{fontWeight: 'bold', color: 'var(--primary-color)', marginTop: '0.5rem'}}>
-                    Important: To ensure data syncs correctly, you must be logged into the same Google Account on all your devices (PC, mobile, etc.).
-                </p>
-                {config?.google?.fileId ? (
-                    <div className="status-message ok">Data file is configured. File ID: {config.google.fileId}</div>
-                ) : (
-                    <button className="button" onClick={handleCreateFile} disabled={!config?.google?.clientId || isLoading}>
-                        {isLoading ? <span className="loader" /> : 'Create & Use New Data File'}
-                    </button>
-                )}
-            </div>
+        <div className="tab-content">
+            <div className="card">
+                <h2>Admin: User Management</h2>
+                <p className="helper-text">Manage who can access this application.</p>
 
-            {status && <div className={`status-message ${status.ok ? 'ok' : 'error'}`}>{status.message}</div>}
-            
-            <div className="form-group" style={{marginTop: '2rem'}}>
-                <label>Reset Configuration</label>
-                <p className="helper-text">This will clear your Client ID from this device and attempt to delete the synced config file from Google Drive.</p>
-                <button className="button danger-action" onClick={handleClearConfig}>Clear All Settings</button>
+                <div className="config-group">
+                    <h3>Create New User</h3>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr auto', gap: '10px', alignItems: 'end' }}>
+                        <div className="form-group">
+                            <label>Username</label>
+                            <input type="text" value={newUsername} onChange={e => setNewUsername(e.target.value)} />
+                        </div>
+                        <div className="form-group">
+                            <label>Password</label>
+                            <input type="text" value={newPassword} onChange={e => setNewPassword(e.target.value)} placeholder="New Password" />
+                        </div>
+                        <div className="form-group">
+                            <label>Role</label>
+                            <select value={newRole} onChange={e => setNewRole(e.target.value as any)}>
+                                <option value="officer">Officer</option>
+                                <option value="admin">Admin</option>
+                            </select>
+                        </div>
+                        <button className="button primary-action" onClick={handleAddUser} style={{ marginBottom: '15px' }}>Add User</button>
+                    </div>
+                    {saveStatus && <p className="success-message">{saveStatus}</p>}
+                </div>
+
+                <div className="config-group" style={{ marginTop: '2rem' }}>
+                    <h3>Current Users</h3>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: '1rem' }}>
+                        <thead>
+                            <tr style={{ background: '#f1f5f9', textAlign: 'left' }}>
+                                <th style={{ padding: '10px' }}>Username</th>
+                                <th style={{ padding: '10px' }}>Role</th>
+                                <th style={{ padding: '10px' }}>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {config?.users?.map(u => (
+                                <tr key={u.username} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                                    <td style={{ padding: '10px', fontWeight: 'bold' }}>{u.username}</td>
+                                    <td style={{ padding: '10px' }}>
+                                        <span className={`status-badge ${u.role === 'admin' ? 'status-closed' : 'status-active'}`}>
+                                            {u.role.toUpperCase()}
+                                        </span>
+                                    </td>
+                                    <td style={{ padding: '10px' }}>
+                                        <button
+                                            className="button secondary-action"
+                                            style={{ padding: '5px 10px', fontSize: '0.8rem', background: '#ef4444', color: 'white', border: 'none' }}
+                                            onClick={() => handleDeleteUser(u.username)}
+                                        >
+                                            Delete
+                                        </button>
+                                    </td>
+                                </tr>
+                            ))}
+                            {(!config?.users || config.users.length === 0) && (
+                                <tr>
+                                    <td colSpan={3} style={{ padding: '20px', textAlign: 'center', color: '#999' }}>No users found (System uses default admin).</td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     );
