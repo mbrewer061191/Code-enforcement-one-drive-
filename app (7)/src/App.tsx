@@ -17,12 +17,17 @@ import { savePendingPatrolCases, loadPendingPatrolCases } from './patrolService'
 import WelcomeScreen from './components/WelcomeScreen';
 import * as fileService from './fileSystemService';
 
-type AppStatus = 'NO_FILE' | 'READY';
+import LoginScreen from './components/LoginScreen';
+import { User, AppConfig } from './types';
+import { getConfig, saveConfig } from './config';
+
+type AppStatus = 'NO_FILE' | 'LOGIN_REQUIRED' | 'READY';
 
 const App: React.FC = () => {
     const [appStatus, setAppStatus] = useState<AppStatus>('NO_FILE');
     const [view, setView] = useState<View>('TASKS');
     const [activeTab, setActiveTab] = useState('tasks');
+    const [currentUser, setCurrentUser] = useState<User | null>(null);
 
     const [cases, setCases] = useState<Case[]>([]);
     const [properties, setProperties] = useState<Property[]>([]);
@@ -30,6 +35,9 @@ const App: React.FC = () => {
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [showAbatementReport, setShowAbatementReport] = useState(false);
+
+    // To pass config to LoginScreen
+    const [loadedConfig, setLoadedConfig] = useState<AppConfig | null>(null);
 
     // Draft state for a new case to persist across view changes
     const [draftCase, setDraftCase] = useState<(Partial<Case> & { _tempPhotos?: PhotoWithMeta[] }) | null>(null);
@@ -61,7 +69,20 @@ const App: React.FC = () => {
             const data = await fileService.loadFromHandle();
             setCases(data.cases || []);
             setProperties(data.properties || []);
-            setAppStatus('READY');
+
+            // Check for users in config
+            const config = await getConfig();
+            setLoadedConfig(config);
+
+            if (!config?.users || config.users.length === 0) {
+                // First Run: Create Admin
+                const defaultAdmin: User = { username: 'admin', password: 'admin', role: 'admin' };
+                const newConfig = { ...config, users: [defaultAdmin] };
+                await saveConfig(newConfig);
+                setLoadedConfig(newConfig);
+            }
+
+            setAppStatus('LOGIN_REQUIRED');
         } catch (e: any) {
             if (e.name !== 'AbortError') {
                 setError(`Failed to open file: ${e.message}`);
@@ -71,6 +92,11 @@ const App: React.FC = () => {
         }
     };
 
+    const handleLogin = (user: User) => {
+        setCurrentUser(user);
+        setAppStatus('READY');
+    };
+
     const handleCreateFile = async () => {
         setIsLoading(true);
         setError(null);
@@ -78,7 +104,15 @@ const App: React.FC = () => {
             await fileService.createNewDatabase();
             setCases([]);
             setProperties([]);
-            setAppStatus('READY');
+
+            // Create Default Admin for new file
+            const defaultAdmin: User = { username: 'admin', password: 'admin', role: 'admin' };
+            const config = await getConfig();
+            const newConfig = { ...config, users: [defaultAdmin] };
+            await saveConfig(newConfig);
+            setLoadedConfig(newConfig);
+
+            setAppStatus('LOGIN_REQUIRED');
         } catch (e: any) {
             if (e.name !== 'AbortError') {
                 setError(`Failed to create file: ${e.message}`);
@@ -242,6 +276,10 @@ const App: React.FC = () => {
 
     if (appStatus === 'NO_FILE') {
         return <WelcomeScreen onOpen={handleOpenFile} onCreate={handleCreateFile} isLoading={isLoading} error={error} />;
+    }
+
+    if (appStatus === 'LOGIN_REQUIRED') {
+        return <LoginScreen config={loadedConfig!} onLogin={handleLogin} isLoading={isLoading} />;
     }
 
     const renderContent = () => {

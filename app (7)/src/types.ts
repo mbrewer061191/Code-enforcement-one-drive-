@@ -70,20 +70,19 @@ export interface PhotoWithMeta {
   dataUrl: string;
 }
 
+export interface User {
+  username: string;
+  password: string; // Plaintext for simplicity given local file constraints, or basic hash if possible. We'll stick to simple text for now as requested for simplicity.
+  role: 'admin' | 'officer';
+}
+
 export interface AppConfig {
   google?: {
     clientId: string;
     fileId?: string;
-    templateUrls?: {
-      INITIAL?: string;
-      FAILURE?: string;
-    };
-    envelopeTemplateUrl?: string;
-    certificateOfMailTemplateUrl?: string;
-    statementOfCostTemplateUrl?: string;
-    noticeOfLienTemplateUrl?: string;
-    certificateOfLienTemplateUrl?: string;
+    // ... (templates moved to local config below)
   };
+  users?: User[]; // Local text-based users
   templates?: {
     cityName: string;
     departmentName: string;
