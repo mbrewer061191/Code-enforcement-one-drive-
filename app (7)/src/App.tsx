@@ -61,6 +61,34 @@ const App: React.FC = () => {
         }
     };
 
+    // Helper function (Put this outside component or inside)
+    const seedDefaults = (config: AppConfig): AppConfig => {
+        if (config.templates && config.templates.length > 0) return config;
+
+        // Create Defaults
+        const defaults: DocTemplate[] = [
+            {
+                id: 'default-initial',
+                name: 'Initial Notice of Violation',
+                type: 'notice',
+                content: '<p><strong>To:</strong> {{OwnerName}}<br/>{{MailingAddress}}</p><h3 style="text-align: center; text-decoration: underline;">NOTICE OF VIOLATION</h3><p>Date: {{Date}}</p><p>Re: {{PropertyAddress}}</p><p>Dear Property Owner,</p><p>This letter is to inform you that the property listed above is in violation of City Ordinances.</p>{{Violations}}<p>Please correct these violations by <strong>{{Deadline}}</strong>.</p><p>Failure to comply may result in further legal action or abatement by the City at the owner\'s expense.</p><br/><br/><p>Sincerely,</p><p>{{OfficerName}}</p>'
+            },
+            {
+                id: 'default-final',
+                name: 'Final Notice',
+                type: 'notice',
+                content: '<p><strong>To:</strong> {{OwnerName}}<br/>{{MailingAddress}}</p><h3 style="text-align: center; text-decoration: underline; color: red;">FINAL NOTICE TO ABATE</h3><p>Date: {{Date}}</p><p>Re: {{PropertyAddress}}</p><p><strong>WARNING: FINAL NOTICE</strong></p><p>Previous notices regarding violations at this property have been ignored.</p>{{Violations}}<p>If not corrected by <strong>{{Deadline}}</strong>, the City will enter the property to abate the nuisance. Costs will be assessed to the owner and may become a lien on the property.</p><br/><br/><p>Sincerely,</p><p>{{OfficerName}}</p>'
+            },
+            {
+                id: 'default-envelope',
+                name: 'Standard Envelope (#10)',
+                type: 'envelope',
+                content: '<div class="envelope-return">{{CityName}}<br/>{{DepartmentName}}</div><div class="envelope-dest">{{OwnerName}}<br/>{{MailingAddress}}</div>'
+            }
+        ];
+        return { ...config, templates: defaults };
+    };
+
     const handleOpenFile = async () => {
         setIsLoading(true);
         setError(null);
@@ -70,22 +98,25 @@ const App: React.FC = () => {
             setCases(data.cases || []);
             setProperties(data.properties || []);
 
-            // Check for users in config
-            const config = await getConfig();
-            setLoadedConfig(config);
+            // Check for users & templates
+            let config = await getConfig();
 
+            // 1. Seed Users (Admin)
             if (!config?.users || config.users.length === 0) {
-                // First Run: Create Admin
                 const defaultAdmin: User = { username: 'admin', password: 'admin', role: 'admin' };
-                const newConfig = { ...config, users: [defaultAdmin] };
-                await saveConfig(newConfig);
-                setLoadedConfig(newConfig);
+                config = { ...config, users: [defaultAdmin] };
             }
+
+            // 2. Seed Templates
+            config = seedDefaults(config || {});
+
+            setLoadedConfig(config);
+            await saveConfig(config); // Save seeds immediately
 
             setAppStatus('LOGIN_REQUIRED');
         } catch (e: any) {
             if (e.name !== 'AbortError') {
-                setError(`Failed to open file: ${e.message}`);
+                setError(`Failed to open: ${e.message}`);
             }
         } finally {
             setIsLoading(false);
@@ -105,17 +136,21 @@ const App: React.FC = () => {
             setCases([]);
             setProperties([]);
 
-            // Create Default Admin for new file
+            let config = await getConfig();
+            // 1. Seed Users
             const defaultAdmin: User = { username: 'admin', password: 'admin', role: 'admin' };
-            const config = await getConfig();
-            const newConfig = { ...config, users: [defaultAdmin] };
-            await saveConfig(newConfig);
-            setLoadedConfig(newConfig);
+            config = { ...config, users: [defaultAdmin] };
+
+            // 2. Seed Templates
+            config = seedDefaults(config);
+
+            await saveConfig(config);
+            setLoadedConfig(config);
 
             setAppStatus('LOGIN_REQUIRED');
         } catch (e: any) {
             if (e.name !== 'AbortError') {
-                setError(`Failed to create file: ${e.message}`);
+                setError(`Failed to create: ${e.message}`);
             }
         } finally {
             setIsLoading(false);
