@@ -1,18 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { AppConfig, DocTemplate, GlobalSettings } from '../types';
 import { getConfig, saveConfig } from '../config';
+import SimpleEditor from './SimpleEditor';
+import { VARIABLES_LIST } from '../variables';
+import mammoth from 'mammoth';
 
 const PLACEHOLDERS = [
     { label: 'Current Date', value: '{{Date}}' },
     { label: 'Case Number', value: '{{CaseNumber}}' },
-    { label: 'Owner Name', value: '{{OwnerName}}' },
-    { label: 'Mailing Address', value: '{{MailingAddress}}' },
-    { label: 'Property Address', value: '{{PropertyAddress}}' },
-    { label: 'Violation List', value: '{{Violations}}' },
-    { label: 'Compliance Deadline', value: '{{Deadline}}' },
-    { label: 'City Name', value: '{{CityName}}' },
-    { label: 'Department', value: '{{DepartmentName}}' },
-    { label: 'Officer Name', value: '{{OfficerName}}' },
 ];
 
 const DEFAULT_GLOBAL: GlobalSettings = {
@@ -30,7 +25,6 @@ const TemplateManager: React.FC = () => {
     const [activeTab, setActiveTab] = useState<'global' | 'templates'>('templates');
     const [saveStatus, setSaveStatus] = useState('');
 
-    // Editor State
     const [editingTemplate, setEditingTemplate] = useState<DocTemplate | null>(null);
     const [globalSettings, setGlobalSettings] = useState<GlobalSettings>(DEFAULT_GLOBAL);
 
@@ -71,7 +65,7 @@ const TemplateManager: React.FC = () => {
         const newConfig = { ...config, templates: newTemplates };
         await saveConfig(newConfig);
         setConfig(newConfig);
-        setEditingTemplate(null); // Close editor
+        setEditingTemplate(null);
         showStatus('Template saved!');
     };
 
@@ -90,19 +84,39 @@ const TemplateManager: React.FC = () => {
 
     const insertPlaceholder = (ph: string) => {
         if (!editingTemplate) return;
-        const textarea = document.getElementById('template-editor') as HTMLTextAreaElement;
-        if (textarea) {
-            const start = textarea.selectionStart;
-            const end = textarea.selectionEnd;
-            const text = editingTemplate.content;
-            const newText = text.substring(0, start) + ph + text.substring(end);
-            setEditingTemplate({ ...editingTemplate, content: newText });
-            // Defer focus restore
-            setTimeout(() => {
-                textarea.focus();
-                textarea.setSelectionRange(start + ph.length, start + ph.length);
-            }, 0);
-        }
+        // SimpleEditor monitors value prop and updates.
+        setEditingTemplate({ ...editingTemplate, content: editingTemplate.content + ph });
+    };
+
+    const handleImportWord = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (!e.target.files || !e.target.files[0] || !editingTemplate) return;
+        const file = e.target.files[0];
+        const reader = new FileReader();
+
+        reader.onload = async (event) => {
+            if (event.target?.result) {
+                try {
+                    const arrayBuffer = event.target.result as ArrayBuffer;
+                    const result = await mammoth.convertToHtml({ arrayBuffer });
+
+                    // Add result to content. We add a few newlines for separation if content exists.
+                    const newContent = editingTemplate.content
+                        ? editingTemplate.content + "<br/><br/>" + result.value
+                        : result.value;
+
+                    setEditingTemplate({
+                        ...editingTemplate,
+                        content: newContent
+                    });
+
+                    alert("Import successful! The Word document content has been added to the editor.");
+                } catch (err: any) {
+                    console.error(err);
+                    alert("Failed to import Word doc. Please ensure it is a valid .docx file.");
+                }
+            }
+        };
+        reader.readAsArrayBuffer(file);
     };
 
     if (isLoading) return <div className="loader"></div>;
@@ -124,33 +138,13 @@ const TemplateManager: React.FC = () => {
                 {activeTab === 'global' && (
                     <div className="config-group">
                         <h3>Letterhead & Contact Info</h3>
-                        <p className="helper-text">These details are used across all templates via placeholders.</p>
-
                         <div className="grid-form" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
-                            <div className="form-group">
-                                <label>City Name</label>
-                                <input value={globalSettings.cityName} onChange={e => setGlobalSettings({ ...globalSettings, cityName: e.target.value })} />
-                            </div>
-                            <div className="form-group">
-                                <label>Department Name</label>
-                                <input value={globalSettings.departmentName} onChange={e => setGlobalSettings({ ...globalSettings, departmentName: e.target.value })} />
-                            </div>
-                            <div className="form-group">
-                                <label>Contact Phone</label>
-                                <input value={globalSettings.contactPhone} onChange={e => setGlobalSettings({ ...globalSettings, contactPhone: e.target.value })} />
-                            </div>
-                            <div className="form-group">
-                                <label>Contact Email</label>
-                                <input value={globalSettings.contactEmail} onChange={e => setGlobalSettings({ ...globalSettings, contactEmail: e.target.value })} />
-                            </div>
-                            <div className="form-group">
-                                <label>Officer Name / Signature</label>
-                                <input value={globalSettings.officerName} onChange={e => setGlobalSettings({ ...globalSettings, officerName: e.target.value })} />
-                            </div>
-                            <div className="form-group">
-                                <label>Website</label>
-                                <input value={globalSettings.website} onChange={e => setGlobalSettings({ ...globalSettings, website: e.target.value })} />
-                            </div>
+                            <div className="form-group"><label>City Name</label><input value={globalSettings.cityName} onChange={e => setGlobalSettings({ ...globalSettings, cityName: e.target.value })} /></div>
+                            <div className="form-group"><label>Department Name</label><input value={globalSettings.departmentName} onChange={e => setGlobalSettings({ ...globalSettings, departmentName: e.target.value })} /></div>
+                            <div className="form-group"><label>Contact Phone</label><input value={globalSettings.contactPhone} onChange={e => setGlobalSettings({ ...globalSettings, contactPhone: e.target.value })} /></div>
+                            <div className="form-group"><label>Contact Email</label><input value={globalSettings.contactEmail} onChange={e => setGlobalSettings({ ...globalSettings, contactEmail: e.target.value })} /></div>
+                            <div className="form-group"><label>Officer Name</label><input value={globalSettings.officerName} onChange={e => setGlobalSettings({ ...globalSettings, officerName: e.target.value })} /></div>
+                            <div className="form-group"><label>Website</label><input value={globalSettings.website} onChange={e => setGlobalSettings({ ...globalSettings, website: e.target.value })} /></div>
                         </div>
                         <button className="button primary-action" onClick={handleSaveGlobal} style={{ marginTop: '1rem' }}>Save Settings</button>
                     </div>
@@ -162,7 +156,6 @@ const TemplateManager: React.FC = () => {
                         <button className="button" onClick={() => setEditingTemplate({ id: crypto.randomUUID(), name: 'New Template', type: 'notice', content: '' })}>
                             ➕ Create New Template
                         </button>
-
                         <div style={{ marginTop: '1rem', display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: '1rem' }}>
                             {config?.templates?.map(t => (
                                 <div key={t.id} style={{ border: '1px solid #e2e8f0', padding: '1rem', borderRadius: '8px', background: '#f8fafc' }}>
@@ -174,7 +167,6 @@ const TemplateManager: React.FC = () => {
                                     </div>
                                 </div>
                             ))}
-                            {(!config?.templates || config.templates.length === 0) && <p style={{ color: '#999', fontStyle: 'italic' }}>No templates found. Create one!</p>}
                         </div>
                     </div>
                 )}
@@ -186,46 +178,41 @@ const TemplateManager: React.FC = () => {
                             <h3>Editing: {editingTemplate.name}</h3>
                             <button className="button secondary-action" onClick={() => setEditingTemplate(null)}>Cancel</button>
                         </div>
+                        <div className="form-group"><label>Template Name</label><input value={editingTemplate.name} onChange={e => setEditingTemplate({ ...editingTemplate, name: e.target.value })} /></div>
+                        <div className="form-group"><label>Type</label><select value={editingTemplate.type} onChange={e => setEditingTemplate({ ...editingTemplate, type: e.target.value as any })}><option value="notice">Standard Letter</option><option value="envelope">Envelope</option></select></div>
 
-                        <div className="form-group">
-                            <label>Template Name</label>
-                            <input value={editingTemplate.name} onChange={e => setEditingTemplate({ ...editingTemplate, name: e.target.value })} />
+                        {/* IMPORT WORD - Added BLUE BOX */}
+                        <div className="form-group" style={{ background: '#e0f2fe', padding: '10px', borderRadius: '4px', border: '1px solid #bae6fd' }}>
+                            <label style={{ color: '#0369a1', fontWeight: 'bold' }}>📤 Import from Word (.docx)</label>
+                            <div style={{ marginTop: '5px' }}>
+                                <input type="file" accept=".docx" onChange={handleImportWord} />
+                            </div>
+                            <p style={{ fontSize: '0.8rem', color: '#0284c7', margin: '5px 0' }}>It will convert your Word doc to text and paste it below.</p>
                         </div>
 
-                        <div className="form-group">
-                            <label>Document Type</label>
-                            <select value={editingTemplate.type} onChange={e => setEditingTemplate({ ...editingTemplate, type: e.target.value as any })}>
-                                <option value="notice">Standard Letter (8.5x11)</option>
-                                <option value="envelope">Envelope (#10)</option>
-                            </select>
-                        </div>
-
-                        <div className="form-group">
-                            <label>Insert "Magic Variable"</label>
-                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px', marginBottom: '0.5rem' }}>
-                                {PLACEHOLDERS.map(p => (
-                                    <button
-                                        key={p.value}
-                                        className="button secondary-action"
-                                        style={{ fontSize: '0.8rem', padding: '2px 8px' }}
-                                        onClick={() => insertPlaceholder(p.value)}
-                                    >
-                                        {p.label}
-                                    </button>
+                        {/* VARIABLE PICKER */}
+                        <div className="variable-picker" style={{ border: '1px solid #e2e8f0', padding: '10px', marginBottom: '1rem', borderRadius: '4px', background: '#f8fafc' }}>
+                            <strong>Insert Smart Tag:</strong>
+                            <div style={{ display: 'flex', gap: '10px', overflowX: 'auto', paddingBottom: '5px', marginTop: '5px' }}>
+                                {VARIABLES_LIST.map((cat, idx) => (
+                                    <div key={idx} style={{ minWidth: '150px' }}>
+                                        <div style={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#64748b', marginBottom: '3px' }}>{cat.category}</div>
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                            {cat.items.map(v => (
+                                                <button key={v.value} className="button secondary-action" style={{ fontSize: '0.75rem', padding: '2px 5px', textAlign: 'left' }} onClick={() => insertPlaceholder(v.value)}>
+                                                    + {v.label}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
                                 ))}
                             </div>
                         </div>
 
                         <div className="form-group">
-                            <label>Document Content</label>
-                            <textarea
-                                id="template-editor"
-                                value={editingTemplate.content}
-                                onChange={e => setEditingTemplate({ ...editingTemplate, content: e.target.value })}
-                                style={{ minHeight: '400px', fontFamily: 'monospace', fontSize: '14px' }}
-                            />
+                            <label>Content (Visual Editor)</label>
+                            <SimpleEditor value={editingTemplate.content} onChange={html => setEditingTemplate({ ...editingTemplate, content: html })} />
                         </div>
-
                         <button className="button primary-action" onClick={handleSaveTemplate}>Save Template</button>
                     </div>
                 )}
