@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { APP_VERSION } from '../constants';
 
 interface WelcomeScreenProps {
     onOpen: () => Promise<void>;
@@ -19,7 +19,9 @@ const WelcomeScreen: React.FC<WelcomeScreenProps> = ({ onOpen, onCreate, isLoadi
             padding: '2rem'
         }}>
             <div className="card" style={{ maxWidth: '600px', width: '100%', padding: '3rem', textAlign: 'center' }}>
-                <h1 style={{ marginBottom: '1rem', color: 'var(--primary-color)' }}>Code Enforcement App</h1>
+                <h1 style={{ marginBottom: '0.5rem', color: 'var(--primary-color)' }}>Code Enforcement App</h1>
+                <p style={{ marginBottom: '2rem', fontSize: '0.9rem', color: '#64748b' }}>v{APP_VERSION}</p>
+
                 <p style={{ marginBottom: '2.5rem', fontSize: '1.1rem', color: 'var(--text-secondary)' }}>
                     To get started, please open your database file from <strong>OneDrive</strong> or create a new one.
                 </p>
