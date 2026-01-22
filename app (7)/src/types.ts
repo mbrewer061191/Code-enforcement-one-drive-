@@ -82,20 +82,30 @@ export interface AppConfig {
     fileId?: string;
     // ... (templates moved to local config below)
   };
-  users?: User[]; // Local text-based users
-  templates?: {
-    cityName: string;
-    departmentName: string;
-    initialNotice: {
-      header: string;
-      body: string;
-      warning: string;
-    };
-    finalNotice: {
-      header: string;
-      body: string;
-    };
+export interface GlobalSettings {
+  cityName: string;
+  departmentName: string;
+  contactPhone: string;
+  contactEmail: string;
+  officerName: string;
+  website: string;
+}
+
+export interface DocTemplate {
+  id: string;
+  name: string;
+  content: string; // The text content with {{Placeholders}}
+  type: 'notice' | 'envelope' | 'other';
+}
+
+export interface AppConfig {
+  google?: {
+    clientId: string;
+    fileId?: string;
   };
+  users?: User[];
+  globalSettings?: GlobalSettings;
+  templates?: DocTemplate[];
 }
 
 export interface ComplaintLogEntry {
