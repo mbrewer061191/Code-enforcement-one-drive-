@@ -40,7 +40,7 @@ export interface AbatementDetails {
 
 
 export interface Case {
-  id: string; 
+  id: string;
   caseId: string;
   status: 'ACTIVE' | 'DUE' | 'CLOSED' | 'FAILURE-NOTICED' | 'PENDING_ABATEMENT' | 'CONTINUAL_ABATEMENT';
   dateCreated: string;
@@ -48,7 +48,7 @@ export interface Case {
   address: { street: string; city: string; province: string; postalCode: string; };
   ownerInfo: { name?: string; mailingAddress?: string; phone?: string; };
   ownerInfoStatus: 'KNOWN' | 'UNKNOWN';
-  violation: { type: string; ordinance: string; description:string; correctiveAction: string; noticeClause: string; };
+  violation: { type: string; ordinance: string; description: string; correctiveAction: string; noticeClause: string; };
   evidence: { notes: { date: string; text: string; }[]; photos?: EvidencePhoto[] };
   notices: { title: string; docUrl: string; date: string; }[];
   isVacant: boolean;
@@ -66,24 +66,37 @@ export interface Property {
 }
 
 export interface PhotoWithMeta {
-    file: File;
-    dataUrl: string;
+  file: File;
+  dataUrl: string;
 }
 
 export interface AppConfig {
-    google?: { 
-        clientId: string; 
-        fileId?: string; 
-        templateUrls?: {
-            INITIAL?: string;
-            FAILURE?: string;
-        };
-        envelopeTemplateUrl?: string;
-        certificateOfMailTemplateUrl?: string;
-        statementOfCostTemplateUrl?: string;
-        noticeOfLienTemplateUrl?: string;
-        certificateOfLienTemplateUrl?: string;
+  google?: {
+    clientId: string;
+    fileId?: string;
+    templateUrls?: {
+      INITIAL?: string;
+      FAILURE?: string;
     };
+    envelopeTemplateUrl?: string;
+    certificateOfMailTemplateUrl?: string;
+    statementOfCostTemplateUrl?: string;
+    noticeOfLienTemplateUrl?: string;
+    certificateOfLienTemplateUrl?: string;
+  };
+  templates?: {
+    cityName: string;
+    departmentName: string;
+    initialNotice: {
+      header: string;
+      body: string;
+      warning: string;
+    };
+    finalNotice: {
+      header: string;
+      body: string;
+    };
+  };
 }
 
 export interface ComplaintLogEntry {
