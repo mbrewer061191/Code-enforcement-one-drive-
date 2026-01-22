@@ -1,416 +1,150 @@
 import React, { useState, useEffect } from 'react';
-import { Case, EvidencePhoto, Notice, Note, AbatementInfo } from '../types';
-import { getCaseTimeStatus } from '../utils';
-import { generateNoticeContent, NOTICE_TEMPLATES } from '../notice-templates';
-import CameraView from './CameraView';
+import { Case, DocTemplate, AppConfig, GlobalSettings } from '../types';
+import { generateNoticeContent } from '../notice-templates';
+import { getConfig } from '../config';
 
 interface CaseDetailsProps {
     caseData: Case;
     onBack: () => void;
-    onUpdate: (updatedCase: Case) => Promise<void>;
-    onDelete: (caseId: string) => Promise<void>;
+    onUpdate: (updatedCase: Case) => void;
+    onDelete: (caseId: string) => void;
 }
 
 const CaseDetails: React.FC<CaseDetailsProps> = ({ caseData, onBack, onUpdate, onDelete }) => {
-    const [activeTab, setActiveTab] = useState<'info' | 'evidence' | 'notices' | 'notes' | 'abatement'>('info');
-    const [isEditing, setIsEditing] = useState(false);
-    const [editedCase, setEditedCase] = useState<Case>(caseData);
-    const [isSaving, setIsSaving] = useState(false);
-    const [showCamera, setShowCamera] = useState(false);
-    const [showNoticePreview, setShowNoticePreview] = useState(false);
-    const [selectedTemplateId, setSelectedTemplateId] = useState<string>(NOTICE_TEMPLATES[0].id);
-    const [generatedNoticeHtml, setGeneratedNoticeHtml] = useState('');
-    const [newNoteText, setNewNoteText] = useState('');
-
-    // Abatement State
-    const [abatementForm, setAbatementForm] = useState<AbatementInfo>(caseData.abatement || { workDate: '', cost: 0, contractor: '', invoiceNumber: '', notes: '' });
+    const [templates, setTemplates] = useState<DocTemplate[]>([]);
+    const [globalSettings, setGlobalSettings] = useState<GlobalSettings | undefined>(undefined);
+    const [configLoaded, setConfigLoaded] = useState(false);
 
     useEffect(() => {
-        setEditedCase(caseData);
-        setAbatementForm(caseData.abatement || { workDate: '', cost: 0, contractor: '', invoiceNumber: '', notes: '' });
-    }, [caseData]);
+        const loadConfig = async () => {
+            const cfg = await getConfig();
+            setTemplates(cfg?.templates || []);
+            setGlobalSettings(cfg?.globalSettings);
+            setConfigLoaded(true);
+        };
+        loadConfig();
+    }, []);
 
-    const handleSave = async () => {
-        setIsSaving(true);
-        try {
-            // If status changed to CLOSED, set dateClosed
-            if (editedCase.status === 'CLOSED' && caseData.status !== 'CLOSED') {
-                editedCase.dateClosed = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-            }
-            // If status changed from CLOSED to ACTIVE, clear dateClosed
-            if (editedCase.status !== 'CLOSED' && caseData.status === 'CLOSED') {
-                editedCase.dateClosed = undefined;
-            }
-
-            await onUpdate(editedCase);
-            setIsEditing(false);
-        } catch (error) {
-            console.error("Failed to save:", error);
-            alert("Failed to save changes.");
-        } finally {
-            setIsSaving(false);
-        }
-    };
-
-    const handlePhotoTaken = async (photo: EvidencePhoto) => {
-        const updatedPhotos = [...editedCase.evidence.photos, photo];
-        const updatedCase = { ...editedCase, evidence: { ...editedCase.evidence, photos: updatedPhotos } };
-        setEditedCase(updatedCase);
-        setShowCamera(false);
-
-        // Auto-save when photo is added
-        await onUpdate(updatedCase);
-    };
-
-    const handleDeletePhoto = async (photoId: string) => {
-        if (!window.confirm("Delete this photo?")) return;
-        const updatedPhotos = editedCase.evidence.photos.filter(p => p.id !== photoId);
-        const updatedCase = { ...editedCase, evidence: { ...editedCase.evidence, photos: updatedPhotos } };
-        setEditedCase(updatedCase);
-        await onUpdate(updatedCase);
-    };
-
-    const handleGenerateNotice = () => {
-        const html = generateNoticeContent(selectedTemplateId, editedCase);
-        setGeneratedNoticeHtml(html);
-        setShowNoticePreview(true);
-    };
-
-    const handlePrintNotice = async () => {
+    const handleGenerateDoc = (template: DocTemplate) => {
+        const htmlContent = generateNoticeContent(template, caseData, globalSettings);
         const printWindow = window.open('', '_blank');
         if (printWindow) {
-            printWindow.document.write(`
-                <html>
-                    <head>
-                        <title>Print Notice</title>
-                        <style>
-                            body { font-family: 'Times New Roman', serif; padding: 40px; max-width: 800px; margin: 0 auto; }
-                            @media print { body { padding: 0; } }
-                        </style>
-                    </head>
-                    <body>${generatedNoticeHtml}</body>
-                </html>
-            `);
+            printWindow.document.write(htmlContent);
             printWindow.document.close();
-            printWindow.focus();
 
-            // Wait for images to load before printing (if any)
-            setTimeout(() => {
-                printWindow.print();
-                printWindow.close();
-            }, 500);
-
-            // Record the notice in history
-            await recordNoticeHistory();
+            // Log this action (Optional: could add to case history)
+            // For now, we just print
+        } else {
+            alert("Pop-up blocked. Please allow pop-ups for this site.");
         }
     };
 
-    const handleSaveAsWord = async () => {
-        const header = "<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>Notice</title></head><body>";
-        const footer = "</body></html>";
-        const sourceHTML = header + generatedNoticeHtml + footer;
-
-        const source = 'data:application/vnd.ms-word;charset=utf-8,' + encodeURIComponent(sourceHTML);
-        const fileDownload = document.createElement("a");
-        document.body.appendChild(fileDownload);
-        fileDownload.href = source;
-        fileDownload.download = `Notice - ${caseData.address.street}.doc`;
-        fileDownload.click();
-        document.body.removeChild(fileDownload);
-
-        // Record the notice in history
-        await recordNoticeHistory();
+    const handlePrintMenu = (e: React.MouseEvent) => {
+        // Toggle dropdown logic could go here, for now we will just show buttons in the UI
     };
 
-    const recordNoticeHistory = async () => {
-        const newNotice: Notice = {
-            id: self.crypto.randomUUID(),
-            dateGenerated: new Date().toLocaleDateString(),
-            type: NOTICE_TEMPLATES.find(t => t.id === selectedTemplateId)?.name || 'Notice',
-            content: 'Generated via template'
-        };
-        const updatedCase = { ...editedCase, notices: [newNotice, ...editedCase.notices] };
-        setEditedCase(updatedCase);
-        await onUpdate(updatedCase);
-        setShowNoticePreview(false);
+    const handleAddNote = () => {
+        const text = prompt("Enter note:");
+        if (text) {
+            const newNote = { date: new Date().toLocaleDateString(), text };
+            onUpdate({
+                ...caseData,
+                evidence: {
+                    ...caseData.evidence,
+                    notes: [newNote, ...caseData.evidence.notes]
+                }
+            });
+        }
     };
 
-    const handleAddNote = async () => {
-        if (!newNoteText.trim()) return;
-        const newNote: Note = {
-            date: new Date().toLocaleDateString(),
-            text: newNoteText
-        };
-        const updatedCase = {
-            ...editedCase,
-            evidence: {
-                ...editedCase.evidence,
-                notes: [newNote, ...editedCase.evidence.notes]
-            }
-        };
-        setEditedCase(updatedCase);
-        setNewNoteText('');
-        await onUpdate(updatedCase);
-    };
-
-    const handleSaveAbatement = async () => {
-        const updatedCase = { ...editedCase, abatement: abatementForm };
-        setEditedCase(updatedCase);
-        await onUpdate(updatedCase);
-        alert("Abatement info saved.");
-    };
-
-    const statusClass = getCaseTimeStatus(caseData);
-
-    if (showCamera) {
-        return <CameraView mode="single-case" onDone={(p) => handlePhotoTaken(p[0])} onCancel={() => setShowCamera(false)} />;
-    }
+    if (!caseData) return <div>Case not found</div>;
 
     return (
-        <div className="tab-content">
-            <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1rem' }}>
-                <button className="button secondary-action" onClick={onBack} style={{ padding: '0.5rem 1rem' }}>
-                    ← Back
-                </button>
-                <h2 style={{ margin: 0, flexGrow: 1 }}>{caseData.address.street}</h2>
-                <span className={`status-badge ${statusClass}`} style={{ fontSize: '0.9rem' }}>
-                    {caseData.status}
-                </span>
+        <div className="tab-content" style={{ padding: '0 1rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                <button className="button secondary-action" onClick={onBack}>← Back</button>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                    <button className="button danger-action" onClick={() => onDelete(caseData.id)}>Delete Case</button>
+                </div>
             </div>
 
-            <div className="tab-nav" style={{ marginBottom: '1.5rem' }}>
-                <button className={`tab-button ${activeTab === 'info' ? 'active' : ''}`} onClick={() => setActiveTab('info')}>Case Info</button>
-                <button className={`tab-button ${activeTab === 'evidence' ? 'active' : ''}`} onClick={() => setActiveTab('evidence')}>Evidence & Photos</button>
-                <button className={`tab-button ${activeTab === 'notices' ? 'active' : ''}`} onClick={() => setActiveTab('notices')}>Notices</button>
-                <button className={`tab-button ${activeTab === 'notes' ? 'active' : ''}`} onClick={() => setActiveTab('notes')}>Notes & History</button>
-                {(caseData.status === 'PENDING_ABATEMENT' || caseData.status === 'CONTINUAL_ABATEMENT' || caseData.status === 'CLOSED') && (
-                    <button className={`tab-button ${activeTab === 'abatement' ? 'active' : ''}`} onClick={() => setActiveTab('abatement')}>Abatement</button>
-                )}
-            </div>
+            <div className="card">
+                <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #e2e8f0', paddingBottom: '1rem', marginBottom: '1rem' }}>
+                    <div>
+                        <h2 style={{ margin: 0 }}>{caseData.address.street}</h2>
+                        <span className={`status-badge status-${caseData.status.toLowerCase().replace('_', '-')}`}>{caseData.status.replace('_', ' ')}</span>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                        <div style={{ fontSize: '0.9rem', color: '#64748b' }}>Case #: {caseData.caseId}</div>
+                    </div>
+                </div>
 
-            {activeTab === 'info' && (
-                <div className="card">
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', borderBottom: '1px solid var(--border-color)', paddingBottom: '1rem' }}>
-                        <h3>Case Information</h3>
-                        {!isEditing ? (
-                            <button className="button secondary-action" onClick={() => setIsEditing(true)}>Edit Details</button>
-                        ) : (
-                            <div className="button-group">
-                                <button className="button secondary-action" onClick={() => { setIsEditing(false); setEditedCase(caseData); }}>Cancel</button>
-                                <button className="button primary-action" onClick={handleSave} disabled={isSaving}>{isSaving ? 'Saving...' : 'Save Changes'}</button>
+                {/* VISUAL LAYOUT: Two Columns */}
+                <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '2rem' }}>
+
+                    {/* LEFT COLUMN: Info */}
+                    <div>
+                        <div className="detail-section">
+                            <h3>Owner Information</h3>
+                            <p><strong>Name:</strong> {caseData.ownerInfo.name || 'Unknown'}</p>
+                            <p><strong>Address:</strong> {caseData.ownerInfo.mailingAddress || 'N/A'}</p>
+                            <p><strong>Phone:</strong> {caseData.ownerInfo.phone || 'N/A'}</p>
+                        </div>
+
+                        <div className="detail-section" style={{ marginTop: '1.5rem' }}>
+                            <h3>Violation Details</h3>
+                            <div className="violation-card" style={{ background: '#f8fafc', padding: '1rem', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                                <p style={{ color: '#ef4444', fontWeight: 'bold' }}>{caseData.violation.type}</p>
+                                <p style={{ fontSize: '0.9rem' }}>{caseData.violation.description}</p>
+                                <hr style={{ border: 'none', borderTop: '1px solid #e2e8f0', margin: '10px 0' }} />
+                                <p><strong>Ordinance:</strong> {caseData.violation.ordinance}</p>
+                                <p><strong>Action Required:</strong> {caseData.violation.correctiveAction}</p>
+                                <p><strong>Deadline:</strong> {caseData.complianceDeadline}</p>
                             </div>
-                        )}
+                        </div>
+
+                        <div className="detail-section" style={{ marginTop: '1.5rem' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <h3>Case Notes</h3>
+                                <button className="button secondary-action" style={{ padding: '5px 10px', fontSize: '0.8rem' }} onClick={handleAddNote}>+ Add Note</button>
+                            </div>
+                            <div style={{ maxHeight: '200px', overflowY: 'auto', background: '#fff', border: '1px solid #e2e8f0', borderRadius: '4px' }}>
+                                {caseData.evidence.notes.map((note, idx) => (
+                                    <div key={idx} style={{ padding: '10px', borderBottom: '1px solid #f1f5f9' }}>
+                                        <div style={{ fontSize: '0.75rem', color: '#94a3b8' }}>{note.date}</div>
+                                        <div>{note.text}</div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem' }}>
-                        <div className="form-group">
-                            <label>Status</label>
-                            <select
-                                disabled={!isEditing}
-                                value={editedCase.status}
-                                onChange={e => setEditedCase({ ...editedCase, status: e.target.value as any })}
-                            >
-                                <option value="ACTIVE">Active</option>
-                                <option value="PENDING_ABATEMENT">Pending Abatement</option>
-                                <option value="CONTINUAL_ABATEMENT">Continual Abatement</option>
-                                <option value="CLOSED">Closed</option>
-                            </select>
-                        </div>
-
-                        <div className="form-group">
-                            <label>Compliance Deadline</label>
-                            <input
-                                type="text"
-                                disabled={!isEditing}
-                                value={editedCase.complianceDeadline}
-                                onChange={e => setEditedCase({ ...editedCase, complianceDeadline: e.target.value })}
-                            />
-                        </div>
-
-                        <div className="form-group">
-                            <label>Owner Name</label>
-                            <input
-                                type="text"
-                                disabled={!isEditing}
-                                value={editedCase.ownerInfo.name}
-                                onChange={e => setEditedCase({ ...editedCase, ownerInfo: { ...editedCase.ownerInfo, name: e.target.value } })}
-                            />
-                        </div>
-
-                        <div className="form-group">
-                            <label>Owner Phone</label>
-                            <input
-                                type="text"
-                                disabled={!isEditing}
-                                value={editedCase.ownerInfo.phone}
-                                onChange={e => setEditedCase({ ...editedCase, ownerInfo: { ...editedCase.ownerInfo, phone: e.target.value } })}
-                            />
-                        </div>
-
-                        <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                            <label>Owner Address</label>
-                            <input
-                                type="text"
-                                disabled={!isEditing}
-                                value={editedCase.ownerInfo.mailingAddress}
-                                onChange={e => setEditedCase({ ...editedCase, ownerInfo: { ...editedCase.ownerInfo, mailingAddress: e.target.value } })}
-                            />
-                        </div>
-
-                        <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                            <label>Violation Type</label>
-                            <div className={!isEditing ? "form-value" : ""}>
-                                {isEditing ? (
-                                    <input
-                                        type="text"
-                                        value={editedCase.violation.type}
-                                        onChange={e => setEditedCase({ ...editedCase, violation: { ...editedCase.violation, type: e.target.value } })}
-                                    />
-                                ) : editedCase.violation.type}
-                            </div>
-                        </div>
-                        <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                            <label>Violation Description</label>
-                            {isEditing ? (
-                                <textarea
-                                    value={editedCase.violation.description}
-                                    onChange={e => setEditedCase({ ...editedCase, violation: { ...editedCase.violation, description: e.target.value } })}
-                                />
+                    {/* RIGHT COLUMN: Actions & Docs */}
+                    <div>
+                        <div className="card" style={{ background: '#e0f2fe', border: 'none' }}>
+                            <h3 style={{ color: '#0369a1', marginTop: 0 }}>📄 Generate Documents</h3>
+                            {configLoaded ? (
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                                    {templates.length > 0 ? templates.map(t => (
+                                        <button
+                                            key={t.id}
+                                            className="button"
+                                            style={{ background: 'white', color: '#0284c7', border: '1px solid #bfdbfe', justifyContent: 'flex-start' }}
+                                            onClick={() => handleGenerateDoc(t)}
+                                        >
+                                            📄 {t.name}
+                                        </button>
+                                    )) : (
+                                        <p style={{ fontSize: '0.9rem', color: '#666' }}>No templates found. Go to 'Templates' tab to create one.</p>
+                                    )}
+                                </div>
                             ) : (
-                                <div className="form-group readonly"><div className="form-value">{editedCase.violation.description}</div></div>
+                                <p>Loading templates...</p>
                             )}
                         </div>
                     </div>
-
-                    <div style={{ marginTop: '2rem', paddingTop: '1rem', borderTop: '1px solid var(--border-color)' }}>
-                        <button className="button danger-action" onClick={async () => {
-                            if (window.confirm("Are you sure you want to delete this case? This cannot be undone.")) {
-                                await onDelete(caseData.id);
-                            }
-                        }}>Delete Case</button>
-                    </div>
                 </div>
-            )}
-
-            {activeTab === 'evidence' && (
-                <div className="card">
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-                        <h3>Photographic Evidence</h3>
-                        <button className="button" onClick={() => setShowCamera(true)}>+ Take Photo</button>
-                    </div>
-
-                    {editedCase.evidence.photos.length === 0 ? (
-                        <div className="empty-state" style={{ padding: '2rem', textAlign: 'center', background: 'var(--surface-hover)', borderRadius: 'var(--radius-md)' }}>
-                            <p>No photos added yet.</p>
-                        </div>
-                    ) : (
-                        <div className="photo-gallery">
-                            {editedCase.evidence.photos.map(photo => (
-                                <div key={photo.id} className="photo-thumbnail">
-                                    <img src={photo.url} alt="Evidence" onClick={() => window.open(photo.url, '_blank')} />
-                                    <button className="delete-photo" onClick={(e) => { e.stopPropagation(); handleDeletePhoto(photo.id); }}>×</button>
-                                    <span style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'rgba(0,0,0,0.6)', color: 'white', fontSize: '0.7rem', padding: '0.25rem', textAlign: 'center' }}>
-                                        {photo.date}
-                                    </span>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                </div>
-            )}
-
-            {activeTab === 'notices' && (
-                <div className="card">
-                    <h3>Generate Notice</h3>
-                    {!showNoticePreview ? (
-                        <div style={{ maxWidth: '500px' }}>
-                            <div className="form-group">
-                                <label>Select Template</label>
-                                <select value={selectedTemplateId} onChange={e => setSelectedTemplateId(e.target.value)}>
-                                    {NOTICE_TEMPLATES.map(t => (
-                                        <option key={t.id} value={t.id}>{t.name}</option>
-                                    ))}
-                                </select>
-                            </div>
-                            <button className="button full-width" onClick={handleGenerateNotice}>Preview Notice</button>
-                        </div>
-                    ) : (
-                        <div className="notice-preview-container">
-                            <div className="button-group" style={{ marginBottom: '1rem' }}>
-                                <button className="button secondary-action" onClick={() => setShowNoticePreview(false)}>Cancel</button>
-                                <button className="button" onClick={handleSaveAsWord}>Save as Word</button>
-                                <button className="button primary-action" onClick={handlePrintNotice}>Print / Save Record</button>
-                            </div>
-                            <div className="notice-document" dangerouslySetInnerHTML={{ __html: generatedNoticeHtml }} />
-                        </div>
-                    )}
-
-                    <h3 style={{ marginTop: '2rem' }}>Notice History</h3>
-                    <div className="task-list">
-                        {editedCase.notices.length > 0 ? editedCase.notices.map(notice => (
-                            <div key={notice.id} className="task-item">
-                                <div>
-                                    <strong>{notice.type}</strong>
-                                    <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>{notice.dateGenerated}</div>
-                                </div>
-                            </div>
-                        )) : <p style={{ color: 'var(--text-secondary)' }}>No notices generated yet.</p>}
-                    </div>
-                </div>
-            )}
-
-            {activeTab === 'notes' && (
-                <div className="card">
-                    <h3>Case Notes</h3>
-                    <div className="form-group">
-                        <textarea
-                            placeholder="Add a new note..."
-                            value={newNoteText}
-                            onChange={e => setNewNoteText(e.target.value)}
-                            style={{ minHeight: '80px' }}
-                        />
-                        <button className="button" style={{ marginTop: '0.5rem' }} onClick={handleAddNote} disabled={!newNoteText.trim()}>Add Note</button>
-                    </div>
-
-                    <div className="task-list" style={{ marginTop: '1.5rem' }}>
-                        {editedCase.evidence.notes.map((note, idx) => (
-                            <div key={idx} className="note">
-                                <div className="note-date">{note.date}</div>
-                                <div>{note.text}</div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            )}
-
-            {activeTab === 'abatement' && (
-                <div className="card">
-                    <h3>Abatement Record</h3>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '1.5rem' }}>
-                        <div className="form-group">
-                            <label>Work Date</label>
-                            <input type="date" value={abatementForm.workDate} onChange={e => setAbatementForm({ ...abatementForm, workDate: e.target.value })} />
-                        </div>
-                        <div className="form-group">
-                            <label>Cost ($)</label>
-                            <input type="number" value={abatementForm.cost} onChange={e => setAbatementForm({ ...abatementForm, cost: parseFloat(e.target.value) })} />
-                        </div>
-                        <div className="form-group">
-                            <label>Contractor</label>
-                            <input type="text" value={abatementForm.contractor} onChange={e => setAbatementForm({ ...abatementForm, contractor: e.target.value })} />
-                        </div>
-                        <div className="form-group">
-                            <label>Invoice Number</label>
-                            <input type="text" value={abatementForm.invoiceNumber} onChange={e => setAbatementForm({ ...abatementForm, invoiceNumber: e.target.value })} />
-                        </div>
-                        <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-                            <label>Notes</label>
-                            <textarea value={abatementForm.notes} onChange={e => setAbatementForm({ ...abatementForm, notes: e.target.value })} />
-                        </div>
-                    </div>
-                    <button className="button primary-action" onClick={handleSaveAbatement} style={{ marginTop: '1rem' }}>Save Abatement Info</button>
-                </div>
-            )}
+            </div>
         </div>
     );
 };
