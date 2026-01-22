@@ -8,12 +8,12 @@ interface SimpleEditorProps {
 const SimpleEditor: React.FC<SimpleEditorProps> = ({ value, onChange }) => {
     const editorRef = useRef<HTMLDivElement>(null);
 
-    // Initial load
+    // Initial load check
     useEffect(() => {
         if (editorRef.current && editorRef.current.innerHTML !== value) {
             editorRef.current.innerHTML = value;
         }
-    }, []);
+    }, [value]); // Sync when value adds new placeholder
 
     const handleInput = () => {
         if (editorRef.current) {
@@ -35,6 +35,7 @@ const SimpleEditor: React.FC<SimpleEditorProps> = ({ value, onChange }) => {
                 <div style={{ width: '1px', background: '#ccc', margin: '0 5px' }}></div>
                 <button type="button" className="editor-btn" onClick={() => execCmd('justifyLeft')}>Left</button>
                 <button type="button" className="editor-btn" onClick={() => execCmd('justifyCenter')}>Center</button>
+                <button type="button" className="editor-btn" onClick={() => execCmd('justifyRight')}>Right</button>
                 <div style={{ width: '1px', background: '#ccc', margin: '0 5px' }}></div>
                 <button type="button" className="editor-btn" onClick={() => execCmd('insertUnorderedList')}>• List</button>
             </div>
