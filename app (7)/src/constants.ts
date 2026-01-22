@@ -8,6 +8,7 @@ export const GOOGLE_CONSOLE_URL = 'https://console.cloud.google.com/apis/credent
 export const GOOGLE_API_LIBRARY_URL = 'https://console.cloud.google.com/apis/library';
 export const GOOGLE_CONSENT_URL = 'https://console.cloud.google.com/apis/credentials/consent';
 export const EVIDENCE_PHOTO_FOLDER_NAME = 'Code Enforcement Evidence Photos';
+export const APP_VERSION = '1.0.1 (Jan 22 - Word Template Update)';
 
 export const VIOLATIONS_LIST: Case['violation'][] = [
   { type: 'Select a Violation...', ordinance: '', description: '', correctiveAction: '', noticeClause: '' },
