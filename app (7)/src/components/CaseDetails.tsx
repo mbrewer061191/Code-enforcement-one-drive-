@@ -1,9 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Case, EvidencePhoto, Notice, Note, AbatementInfo } from '../types';
-import { getCaseTimeStatus, getNextBusinessDay } from '../utils';
-import React, { useState, useEffect, useRef } from 'react';
-import { Case, EvidencePhoto, Notice, Note, AbatementInfo } from '../types';
-import { getCaseTimeStatus, getNextBusinessDay } from '../utils';
+import { getCaseTimeStatus } from '../utils';
 import { generateNoticeContent, NOTICE_TEMPLATES } from '../notice-templates';
 import CameraView from './CameraView';
 
@@ -104,17 +101,38 @@ const CaseDetails: React.FC<CaseDetailsProps> = ({ caseData, onBack, onUpdate, o
             }, 500);
 
             // Record the notice in history
-            const newNotice: Notice = {
-                id: self.crypto.randomUUID(),
-                dateGenerated: new Date().toLocaleDateString(),
-                type: NOTICE_TEMPLATES.find(t => t.id === selectedTemplateId)?.name || 'Notice',
-                content: 'Generated via template'
-            };
-            const updatedCase = { ...editedCase, notices: [newNotice, ...editedCase.notices] };
-            setEditedCase(updatedCase);
-            await onUpdate(updatedCase);
-            setShowNoticePreview(false);
+            await recordNoticeHistory();
         }
+    };
+
+    const handleSaveAsWord = async () => {
+        const header = "<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>Notice</title></head><body>";
+        const footer = "</body></html>";
+        const sourceHTML = header + generatedNoticeHtml + footer;
+
+        const source = 'data:application/vnd.ms-word;charset=utf-8,' + encodeURIComponent(sourceHTML);
+        const fileDownload = document.createElement("a");
+        document.body.appendChild(fileDownload);
+        fileDownload.href = source;
+        fileDownload.download = `Notice - ${caseData.address.street}.doc`;
+        fileDownload.click();
+        document.body.removeChild(fileDownload);
+
+        // Record the notice in history
+        await recordNoticeHistory();
+    };
+
+    const recordNoticeHistory = async () => {
+        const newNotice: Notice = {
+            id: self.crypto.randomUUID(),
+            dateGenerated: new Date().toLocaleDateString(),
+            type: NOTICE_TEMPLATES.find(t => t.id === selectedTemplateId)?.name || 'Notice',
+            content: 'Generated via template'
+        };
+        const updatedCase = { ...editedCase, notices: [newNotice, ...editedCase.notices] };
+        setEditedCase(updatedCase);
+        await onUpdate(updatedCase);
+        setShowNoticePreview(false);
     };
 
     const handleAddNote = async () => {
@@ -145,7 +163,7 @@ const CaseDetails: React.FC<CaseDetailsProps> = ({ caseData, onBack, onUpdate, o
     const statusClass = getCaseTimeStatus(caseData);
 
     if (showCamera) {
-        return <CameraView onCapture={handlePhotoTaken} onClose={() => setShowCamera(false)} />;
+        return <CameraView mode="single-case" onDone={(p) => handlePhotoTaken(p[0])} onCancel={() => setShowCamera(false)} />;
     }
 
     return (
@@ -320,7 +338,8 @@ const CaseDetails: React.FC<CaseDetailsProps> = ({ caseData, onBack, onUpdate, o
                         <div className="notice-preview-container">
                             <div className="button-group" style={{ marginBottom: '1rem' }}>
                                 <button className="button secondary-action" onClick={() => setShowNoticePreview(false)}>Cancel</button>
-                                <button className="button primary-action" onClick={handlePrintNotice}>Print & Save Record</button>
+                                <button className="button" onClick={handleSaveAsWord}>Save as Word</button>
+                                <button className="button primary-action" onClick={handlePrintNotice}>Print / Save Record</button>
                             </div>
                             <div className="notice-document" dangerouslySetInnerHTML={{ __html: generatedNoticeHtml }} />
                         </div>
