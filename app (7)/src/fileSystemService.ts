@@ -21,14 +21,15 @@ export const getFileHandle = () => fileHandle;
 
 export const createNewDatabase = async (): Promise<FileSystemFileHandle | void> => {
     if (isFileSystemAccessSupported()) {
-        const opts: SaveFilePickerOptions = {
+        const opts = {
             suggestedName: 'code-enforcement-data.json',
             types: [{
                 description: 'JSON Database File',
                 accept: { 'application/json': ['.json'] },
             }],
         };
-        const handle = await window.showSaveFilePicker(opts);
+        // Cast window to any to avoid TS errors if types are missing
+        const handle = await (window as any).showSaveFilePicker(opts);
         fileHandle = handle;
 
         // Initialize with empty data
@@ -53,7 +54,7 @@ export const createNewDatabase = async (): Promise<FileSystemFileHandle | void> 
 
 export const openDatabase = async (): Promise<FileSystemFileHandle | void> => {
     if (isFileSystemAccessSupported()) {
-        const [handle] = await window.showOpenFilePicker({
+        const [handle] = await (window as any).showOpenFilePicker({
             types: [{
                 description: 'JSON Database File',
                 accept: { 'application/json': ['.json'] },
