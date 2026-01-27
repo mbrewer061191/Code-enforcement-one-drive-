@@ -56,10 +56,14 @@ const App: React.FC = () => {
                 lastUpdated: new Date().toISOString()
             });
         } catch (e: any) {
-            console.error("Auto-save failed:", e);
-            setError(`Auto-save failed: ${e.message}`);
+            // Suppress error if we are just in memory mode (no file handle expected if not supported)
+            if (fileService.isFileSystemAccessSupported()) {
+                console.error("Auto-save failed:", e);
+                setError(`Auto-save failed: ${e.message}`);
+            }
         }
     };
+
 
     // Helper function (Put this outside component or inside)
     const seedDefaults = (config: AppConfig): AppConfig => {
@@ -360,6 +364,23 @@ const App: React.FC = () => {
         <>
             <header className="app-header">
                 <h1>Commerce Code Enforcement</h1>
+                {!fileService.isFileSystemAccessSupported() && appStatus === 'READY' && (
+                    <button
+                        onClick={() => fileService.exportDatabase()}
+                        style={{
+                            marginLeft: 'auto',
+                            backgroundColor: 'white',
+                            color: 'var(--primary-color)',
+                            border: 'none',
+                            padding: '0.5rem 1rem',
+                            borderRadius: '4px',
+                            cursor: 'pointer',
+                            fontWeight: 'bold'
+                        }}
+                    >
+                        💾 Save / Export
+                    </button>
+                )}
             </header>
 
             <nav className="tab-nav no-print">
