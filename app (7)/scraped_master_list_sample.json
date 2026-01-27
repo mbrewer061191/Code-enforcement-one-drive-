@@ -1,0 +1,52 @@
+[
+    {
+        "year": "2025",
+        "taxId": "0019812",
+        "schDistCode": "I018",
+        "schDistDesc": "Commerce",
+        "ownerName": "ROGERS, WILLIAM GARY & FRANKIE LEE",
+        "recordId": "48465",
+        "type": "Real Estate",
+        "baseTax": "753.00"
+    },
+    {
+        "year": "2025",
+        "taxId": "0019872",
+        "schDistCode": "I018",
+        "schDistDesc": "Commerce",
+        "ownerName": "FIRST BAPTIST CHURCH",
+        "recordId": "49184",
+        "type": "Real Estate",
+        "baseTax": "0.00"
+    },
+    {
+        "year": "2025",
+        "taxId": "0019873",
+        "schDistCode": "I018",
+        "schDistDesc": "Commerce",
+        "ownerName": "GRAHAM, PENNY",
+        "recordId": "49195",
+        "type": "Real Estate",
+        "baseTax": "511.00"
+    },
+    {
+        "year": "2025",
+        "taxId": "0019874",
+        "schDistCode": "I018",
+        "schDistDesc": "Commerce",
+        "ownerName": "BLANKENSHIP, CHERYL",
+        "recordId": "49207",
+        "type": "Real Estate",
+        "baseTax": "137.00"
+    },
+    {
+        "year": "2025",
+        "taxId": "0019875",
+        "schDistCode": "I018",
+        "schDistDesc": "Commerce",
+        "ownerName": "RICHARDSON, IRENE & WADE",
+        "recordId": "49218",
+        "type": "Real Estate",
+        "baseTax": "252.00"
+    }
+]

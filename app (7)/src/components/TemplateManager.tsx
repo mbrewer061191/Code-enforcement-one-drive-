@@ -1,14 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { AppConfig, DocTemplate, GlobalSettings } from '../types';
 import { getConfig, saveConfig } from '../config';
-import SimpleEditor from './SimpleEditor';
+import SimpleEditor, { SimpleEditorHandle } from './SimpleEditor';
 import { VARIABLES_LIST } from '../variables';
 import mammoth from 'mammoth';
-
-const PLACEHOLDERS = [
-    { label: 'Current Date', value: '{{Date}}' },
-    { label: 'Case Number', value: '{{CaseNumber}}' },
-];
 
 const DEFAULT_GLOBAL: GlobalSettings = {
     cityName: 'City of Commerce',
@@ -27,6 +22,9 @@ const TemplateManager: React.FC = () => {
 
     const [editingTemplate, setEditingTemplate] = useState<DocTemplate | null>(null);
     const [globalSettings, setGlobalSettings] = useState<GlobalSettings>(DEFAULT_GLOBAL);
+
+    // Ref for the Editor to call insertHtml
+    const editorRef = useRef<SimpleEditorHandle>(null);
 
     useEffect(() => {
         const load = async () => {
@@ -84,8 +82,10 @@ const TemplateManager: React.FC = () => {
 
     const insertPlaceholder = (ph: string) => {
         if (!editingTemplate) return;
-        // SimpleEditor monitors value prop and updates.
-        setEditingTemplate({ ...editingTemplate, content: editingTemplate.content + ph });
+        // Use the ref to insert at cursor
+        if (editorRef.current) {
+            editorRef.current.insertHtml(ph);
+        }
     };
 
     const handleImportWord = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -99,7 +99,6 @@ const TemplateManager: React.FC = () => {
                     const arrayBuffer = event.target.result as ArrayBuffer;
                     const result = await mammoth.convertToHtml({ arrayBuffer });
 
-                    // Add result to content. We add a few newlines for separation if content exists.
                     const newContent = editingTemplate.content
                         ? editingTemplate.content + "<br/><br/>" + result.value
                         : result.value;
@@ -109,10 +108,10 @@ const TemplateManager: React.FC = () => {
                         content: newContent
                     });
 
-                    alert("Import successful! The Word document content has been added to the editor.");
+                    alert("Import successful!");
                 } catch (err: any) {
                     console.error(err);
-                    alert("Failed to import Word doc. Please ensure it is a valid .docx file.");
+                    alert("Failed to import Word doc.");
                 }
             }
         };
@@ -192,14 +191,20 @@ const TemplateManager: React.FC = () => {
 
                         {/* VARIABLE PICKER */}
                         <div className="variable-picker" style={{ border: '1px solid #e2e8f0', padding: '10px', marginBottom: '1rem', borderRadius: '4px', background: '#f8fafc' }}>
-                            <strong>Insert Smart Tag:</strong>
+                            <strong>Insert Smart Tag (Click to insert at cursor):</strong>
                             <div style={{ display: 'flex', gap: '10px', overflowX: 'auto', paddingBottom: '5px', marginTop: '5px' }}>
                                 {VARIABLES_LIST.map((cat, idx) => (
                                     <div key={idx} style={{ minWidth: '150px' }}>
                                         <div style={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#64748b', marginBottom: '3px' }}>{cat.category}</div>
                                         <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
                                             {cat.items.map(v => (
-                                                <button key={v.value} className="button secondary-action" style={{ fontSize: '0.75rem', padding: '2px 5px', textAlign: 'left' }} onClick={() => insertPlaceholder(v.value)}>
+                                                <button
+                                                    key={v.value}
+                                                    className="button secondary-action"
+                                                    style={{ fontSize: '0.75rem', padding: '2px 5px', textAlign: 'left' }}
+                                                    onClick={() => insertPlaceholder(v.value)} // Updated to use insertPlaceholder
+                                                    onMouseDown={(e) => e.preventDefault()} // Critical: Prevents focus loss
+                                                >
                                                     + {v.label}
                                                 </button>
                                             ))}
@@ -211,7 +216,12 @@ const TemplateManager: React.FC = () => {
 
                         <div className="form-group">
                             <label>Content (Visual Editor)</label>
-                            <SimpleEditor value={editingTemplate.content} onChange={html => setEditingTemplate({ ...editingTemplate, content: html })} />
+                            {/* Updated to use Ref */}
+                            <SimpleEditor
+                                ref={editorRef}
+                                value={editingTemplate.content}
+                                onChange={html => setEditingTemplate({ ...editingTemplate, content: html })}
+                            />
                         </div>
                         <button className="button primary-action" onClick={handleSaveTemplate}>Save Template</button>
                     </div>

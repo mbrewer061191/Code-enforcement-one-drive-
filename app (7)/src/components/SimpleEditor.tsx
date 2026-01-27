@@ -1,22 +1,46 @@
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useImperativeHandle, forwardRef } from 'react';
 
 interface SimpleEditorProps {
     value: string;
     onChange: (html: string) => void;
 }
 
-const SimpleEditor: React.FC<SimpleEditorProps> = ({ value, onChange }) => {
+export interface SimpleEditorHandle {
+    insertHtml: (html: string) => void;
+}
+
+const SimpleEditor = forwardRef<SimpleEditorHandle, SimpleEditorProps>(({ value, onChange }, ref) => {
     const editorRef = useRef<HTMLDivElement>(null);
+    const isInternalUpdate = useRef(false);
 
     // Initial load check
     useEffect(() => {
-        if (editorRef.current && editorRef.current.innerHTML !== value) {
+        if (editorRef.current && editorRef.current.innerHTML !== value && !isInternalUpdate.current) {
             editorRef.current.innerHTML = value;
         }
-    }, [value]); // Sync when value adds new placeholder
+        isInternalUpdate.current = false;
+    }, [value]);
+
+    useImperativeHandle(ref, () => ({
+        insertHtml: (html: string) => {
+            if (editorRef.current) {
+                editorRef.current.focus();
+                // If selection is lost (e.g. user clicked button), restore it? 
+                // execCommand 'insertHTML' inserts at cursor. 
+                // If no cursor (blur), it might fail or append.
+                const success = document.execCommand('insertHTML', false, html);
+                if (!success) {
+                    // Fallback: Append
+                    editorRef.current.innerHTML += html;
+                }
+                handleInput(); // Trigger change
+            }
+        }
+    }));
 
     const handleInput = () => {
         if (editorRef.current) {
+            isInternalUpdate.current = true;
             onChange(editorRef.current.innerHTML);
         }
     };
@@ -74,6 +98,6 @@ const SimpleEditor: React.FC<SimpleEditorProps> = ({ value, onChange }) => {
             `}</style>
         </div>
     );
-};
+});
 
 export default SimpleEditor;
